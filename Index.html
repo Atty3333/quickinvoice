@@ -1,494 +1,130 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QuickInvoice — Free Invoice Generator for Freelancers</title>
-<meta name="description" content="Create professional invoices in seconds. Free, no signup, exports to PDF. Logo, themes, tax & discounts.">
-<style>
-  :root { --bg:#f0f2f5; --panel:#fff; --text:#1a1a2e; --muted:#666; --border:#d5d9e0; --brand:#4f7cff; }
-  body.dark { --bg:#15171e; --panel:#1f2330; --text:#e8eaf2; --muted:#9aa1b5; --border:#3a4054; }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); transition:background .3s; }
-  .app { display:flex; min-height:100vh; gap:24px; padding:24px; max-width:1440px; margin:0 auto; }
-
-  /* ===== Editor ===== */
-  .editor { flex:0 0 400px; background:var(--panel); border-radius:12px; padding:24px;
-            box-shadow:0 2px 12px rgba(0,0,0,.08); height:fit-content; }
-  .editor h1 { font-size:1.3rem; }
-  .editor .tagline { color:var(--muted); font-size:.85rem; margin:4px 0 18px; }
-  .topbar { display:flex; justify-content:space-between; align-items:center; }
-  .field { margin-bottom:12px; }
-  .field label { display:block; font-size:.75rem; font-weight:600; color:var(--muted);
-                 margin-bottom:4px; text-transform:uppercase; letter-spacing:.04em; }
-  .field input, .field textarea, .field select {
-    width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:6px;
-    font-size:.9rem; font-family:inherit; background:var(--panel); color:var(--text); }
-  .field input:focus, .field textarea:focus { outline:2px solid var(--brand); border-color:transparent; }
-  .row { display:flex; gap:10px; } .row .field { flex:1; }
-  .section-title { font-size:.9rem; font-weight:700; margin:18px 0 10px;
-                   padding-top:14px; border-top:1px solid var(--border); }
-  .item-row { display:grid; grid-template-columns:1fr 58px 78px 28px; gap:6px; margin-bottom:6px; }
-  .item-row input { padding:7px 8px; border:1px solid var(--border); border-radius:6px;
-                    font-size:.85rem; background:var(--panel); color:var(--text); }
-  .btn { cursor:pointer; border:none; border-radius:6px; font-weight:600; font-size:.9rem; }
-  .btn-remove { background:#ffe5e5; color:#c0392b; }
-  .btn-add { background:#eef3ff; color:#4f7cff; padding:8px; width:100%; margin-top:4px; }
-  .btn-print { background:var(--brand); color:#fff; padding:12px; width:100%; margin-top:16px; font-size:1rem; }
-  .btn-print:hover { filter:brightness(.92); }
-  .btn-ghost { background:transparent; border:1px solid var(--border); color:var(--text);
-               padding:8px 10px; font-size:.82rem; }
-  .btn-mini { background:transparent; border:none; color:var(--brand); font-size:.8rem; cursor:pointer; }
-
-  /* Theme picker */
-  .themes { display:flex; gap:8px; flex-wrap:wrap; }
-  .theme-chip { width:56px; height:36px; border-radius:8px; cursor:pointer; border:2px solid transparent;
-                display:flex; align-items:center; justify-content:center; font-size:.65rem;
-                font-weight:700; color:#fff; position:relative; }
-  .theme-chip.active { border-color:var(--text); }
-  .theme-chip.locked { opacity:.55; }
-  .theme-chip.locked::after { content:'🔒'; position:absolute; font-size:.85rem; }
-
-  /* History */
-  .hist-item { display:flex; justify-content:space-between; align-items:center;
-               padding:6px 8px; border:1px solid var(--border); border-radius:6px;
-               margin-bottom:6px; font-size:.83rem; }
-
-  /* Monetization panels */
-  .promo { border:1px dashed var(--brand); border-radius:10px; padding:12px; margin-top:16px; font-size:.83rem; }
-  .promo a { color:var(--brand); font-weight:600; text-decoration:none; }
-  .promo h4 { font-size:.85rem; margin-bottom:6px; }
-  .promo ul { margin:6px 0 0 16px; line-height:1.7; }
-  .footer-links { margin-top:16px; text-align:center; font-size:.82rem; color:var(--muted); }
-  .footer-links a { color:var(--brand); text-decoration:none; font-weight:600; }
-  .email-bar { margin-top:14px; }
-  .email-bar form { display:flex; gap:6px; }
-  .email-bar input { flex:1; }
-  .email-bar button { background:var(--brand); color:#fff; padding:0 14px; }
-
-  /* ===== Invoice ===== */
-  .preview-wrap { flex:1; }
-  .invoice { background:#fff; color:#1a1a2e; border-radius:12px; padding:48px;
-             box-shadow:0 2px 12px rgba(0,0,0,.08); min-height:700px; position:relative;
-             --accent:#4f7cff; }
-  .invoice.theme-noir { --accent:#111; }
-  .invoice.theme-emerald { --accent:#0d9668; }
-  .inv-header { display:flex; justify-content:space-between; margin-bottom:40px; align-items:flex-start; }
-  .inv-title { font-size:2rem; font-weight:800; color:var(--accent); letter-spacing:.05em; }
-  #pLogo { max-height:70px; max-width:200px; display:none; margin-bottom:10px; }
-  .inv-meta { text-align:right; font-size:.9rem; color:#555; line-height:1.7; }
-  .inv-parties { display:flex; justify-content:space-between; margin-bottom:36px; }
-  .party h3 { font-size:.72rem; text-transform:uppercase; color:#999; letter-spacing:.08em; margin-bottom:6px; }
-  .party p { font-size:.95rem; white-space:pre-line; line-height:1.6; }
-  table { width:100%; border-collapse:collapse; margin-bottom:24px; }
-  th { text-align:left; font-size:.72rem; text-transform:uppercase; color:#999;
-       letter-spacing:.08em; padding:8px 6px; border-bottom:2px solid var(--accent); }
-  th:not(:first-child), td:not(:first-child) { text-align:right; }
-  td { padding:10px 6px; border-bottom:1px solid #f2f2f2; font-size:.92rem; }
-  .totals { margin-left:auto; width:260px; font-size:.95rem; }
-  .totals div { display:flex; justify-content:space-between; padding:6px 0; }
-  .totals .grand { border-top:2px solid var(--accent); font-weight:800; font-size:1.15rem; margin-top:6px; }
-  .inv-notes { margin-top:36px; font-size:.85rem; color:#666; white-space:pre-line;
-               border-top:1px solid #eee; padding-top:16px; }
-  .stamp { position:absolute; top:110px; right:56px; transform:rotate(-12deg);
-           border:4px solid; padding:6px 22px; font-weight:800; font-size:1.9rem;
-           opacity:.22; border-radius:8px; display:none; letter-spacing:.1em; }
-  .stamp.paid { color:#0d9668; border-color:#0d9668; }
-  .stamp.sent { color:#4f7cff; border-color:#4f7cff; }
-  .stamp.draft { color:#888; border-color:#888; }
-  .pay-btn { display:none; margin-top:20px; background:var(--accent); color:#fff !important;
-             padding:10px 22px; border-radius:8px; text-decoration:none; font-weight:700; font-size:.95rem; }
-  .inv-brand { position:absolute; bottom:16px; left:0; right:0; text-align:center;
-               font-size:.72rem; color:#bbb; }
-  .inv-brand a { color:#999; text-decoration:none; }
-
-  /* Toast */
-  #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
-           background:#1a1a2e; color:#fff; padding:10px 20px; border-radius:8px;
-           font-size:.88rem; opacity:0; pointer-events:none; transition:opacity .3s; z-index:99; }
-  #toast.show { opacity:1; }
-
-  /* ===== Print ===== */
-  @media print {
-    body { background:#fff; }
-    .editor, .btn-print, #toast, .no-print { display:none !important; }
-    .app { padding:0; display:block; }
-    .invoice { box-shadow:none; border-radius:0; padding:20px; min-height:auto; }
-    .stamp { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  }
-  @media (max-width: 940px) {
-    .app { flex-direction:column; }
-    .editor { flex:none; width:100%; }
-    .stamp { right:24px; top:80px; font-size:1.4rem; }
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickInvoice — Free Invoice Generator</title>
+    <meta name="description" content="Create professional invoices in seconds. Free, no signup, exports to PDF. Logo, themes, tax & discounts.">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="app">
-
-  <!-- ============ EDITOR ============ -->
-  <aside class="editor">
-    <div class="topbar">
-      <h1>⚡ QuickInvoice</h1>
-      <button class="btn btn-ghost" id="darkToggle" title="Toggle dark mode">🌙</button>
-    </div>
-    <p class="tagline">Free invoices in seconds. No signup. Nothing leaves your browser.</p>
-
-    <div class="row">
-      <button class="btn btn-ghost" style="flex:1" onclick="newInvoice()">✨ New Invoice</button>
-      <button class="btn btn-ghost" style="flex:1" onclick="saveToHistory()">💾 Save</button>
-    </div>
-
-    <div class="section-title">Theme</div>
-    <div class="themes" id="themePicker"></div>
-
-    <div class="section-title">Details</div>
-    <div class="field"><label>Your logo</label>
-      <input type="file" id="logoInput" accept="image/*">
-      <button class="btn-mini" id="logoClear" style="display:none;">✕ Remove logo</button></div>
-    <div class="field"><label>Your Business (name, email, address)</label>
-      <textarea id="from" rows="3" placeholder="Jane Doe Design&#10;jane@email.com&#10;123 Main St"></textarea></div>
-    <div class="field"><label>Bill To (client details)</label>
-      <textarea id="to" rows="3" placeholder="Acme Corp&#10;billing@acme.com"></textarea></div>
-
-    <div class="row">
-      <div class="field"><label>Invoice #</label><input id="invNum" value="INV-001"></div>
-      <div class="field"><label>Status</label>
-        <select id="status">
-          <option value="">None</option><option value="draft">Draft</option>
-          <option value="sent">Sent</option><option value="paid">Paid ✓</option>
-        </select></div>
-    </div>
-    <div class="row">
-      <div class="field"><label>Date</label><input id="date" type="date"></div>
-      <div class="field"><label>Due Date</label><input id="due" type="date"></div>
-    </div>
-    <div class="row">
-      <div class="field"><label>Currency</label>
-        <select id="currency">
-          <option value="$">$ USD</option><option value="€">€ EUR</option>
-          <option value="£">£ GBP</option><option value="₹">₹ INR</option>
-          <option value="A$">A$ AUD</option><option value="C$">C$ CAD</option>
-          <option value="R">R ZAR</option><option value="¥">¥ JPY</option>
-        </select></div>
-      <div class="field"><label>Payment link (optional)</label>
-        <input id="payLink" placeholder="https://paypal.me/you"></div>
-    </div>
-
-    <div class="section-title">Line Items</div>
-    <div id="items"></div>
-    <button class="btn btn-add" onclick="addItem()">+ Add Item</button>
-
-    <div class="row" style="margin-top:14px;">
-      <div class="field"><label>Tax %</label><input id="tax" type="number" value="0" min="0" step="0.1"></div>
-      <div class="field"><label>Discount %</label><input id="discount" type="number" value="0" min="0" step="0.1"></div>
-    </div>
-    <div class="field"><label>Notes / Payment terms</label>
-      <textarea id="notes" rows="2" placeholder="Payment due within 14 days. Bank: ..."></textarea></div>
-
-    <button class="btn btn-print" onclick="window.print()">🖨 Download PDF / Print</button>
-
-    <div class="section-title">Saved Invoices</div>
-    <div id="history"><span style="font-size:.82rem;color:var(--muted);">Nothing saved yet.</span></div>
-
-    <!-- ===== MONETIZATION: Pro upsell ===== -->
-    <div class="promo no-print">
-      <h4>⭐ Go Pro — $9 one-time</h4>
-      5 premium themes + remove the QuickInvoice branding from your PDFs.<br>
-      <a href="https://YOUR-STORE.gumroad.com/l/quickinvoice-pro" target="_blank" rel="noopener">Unlock Pro →</a>
-    </div>
-
-    <!-- ===== MONETIZATION: Affiliates ===== -->
-    <div class="promo no-print" style="border-style:solid; border-color:var(--border);">
-      <h4>💸 Get paid faster (tools we recommend)</h4>
-      <ul>
-        <li><a href="https://YOUR-WISE-AFFILIATE-LINK" target="_blank" rel="noopener sponsored">Wise</a> — cheap international transfers</li>
-        <li><a href="https://YOUR-PAYONEER-AFFILIATE-LINK" target="_blank" rel="noopener sponsored">Payoneer</a> — get paid by overseas clients</li>
-        <li><a href="https://YOUR-BOOKKEEPING-AFFILIATE-LINK" target="_blank" rel="noopener sponsored">FreshBooks</a> — when you outgrow this tool</li>
-      </ul>
-    </div>
-
-    <!-- ===== MONETIZATION: Email capture ===== -->
-    <div class="email-bar no-print">
-      <div class="field" style="margin-bottom:6px;"><label>📬 Free invoice templates in your inbox</label></div>
-      <form action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
-        <input type="email" name="email" placeholder="you@email.com" required>
-        <button class="btn" type="submit">Join</button>
-      </form>
-    </div>
-
-    <!-- ===== MONETIZATION: Donations ===== -->
-    <div class="footer-links no-print">
-      Free forever · <a href="https://buymeacoffee.com/YOUR_NAME" target="_blank" rel="noopener">☕ Buy me a coffee</a>
-    </div>
-  </aside>
-
-  <!-- ============ LIVE PREVIEW ============ -->
-  <div class="preview-wrap">
-    <div class="invoice theme-classic" id="invoice">
-      <div class="stamp" id="pStamp"></div>
-      <div class="inv-header">
-        <div>
-          <img id="pLogo" alt="Logo">
-          <div class="inv-title">INVOICE</div>
+    <!-- ============ EDITOR ============ -->
+    <aside class="editor">
+        <div class="topbar">
+            <h1>⚡ QuickInvoice</h1>
+            <button class="btn btn-ghost" id="darkToggle" title="Toggle dark mode">🌙</button>
         </div>
-        <div class="inv-meta">
-          <div><strong id="pInvNum">INV-001</strong></div>
-          <div>Date: <span id="pDate">—</span></div>
-          <div>Due: <span id="pDue">—</span></div>
+        <p class="tagline">Free invoices in seconds. No signup. Nothing leaves your browser.</p>
+
+        <div class="row">
+            <button class="btn btn-ghost" style="flex:1" id="btnNewInvoice">✨ New Invoice</button>
+            <button class="btn btn-ghost" style="flex:1" id="btnSaveHistory">💾 Save</button>
         </div>
-      </div>
-      <div class="inv-parties">
-        <div class="party"><h3>From</h3><p id="pFrom">—</p></div>
-        <div class="party" style="text-align:right;"><h3>Bill To</h3><p id="pTo">—</p></div>
-      </div>
-      <table>
-        <thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead>
-        <tbody id="pItems"></tbody>
-      </table>
-      <div class="totals">
-        <div><span>Subtotal</span><span id="pSub">$0.00</span></div>
-        <div id="pDiscRow" style="display:none;"><span>Discount</span><span id="pDisc"></span></div>
-        <div id="pTaxRow" style="display:none;"><span>Tax</span><span id="pTax"></span></div>
-        <div class="grand"><span>Total</span><span id="pTotal">$0.00</span></div>
-      </div>
-      <a class="pay-btn" id="pPayBtn" target="_blank" rel="noopener">💳 Pay Now</a>
-      <div class="inv-notes" id="pNotes" style="display:none;"></div>
-      <div class="inv-brand">Made free with <a href="https://YOUR-DOMAIN.com">QuickInvoice</a> ·
-        <a href="https://YOUR-STORE.gumroad.com/l/quickinvoice-pro" class="no-print">Remove branding (Pro)</a></div>
+
+        <div class="section-title">Theme</div>
+        <div class="themes" id="themePicker"></div>
+
+        <div class="section-title">Details</div>
+        <div class="field"><label>Your logo</label>
+            <input type="file" id="logoInput" accept="image/*">
+            <button class="btn-mini" id="logoClear" style="display:none;">✕ Remove logo</button>
+        </div>
+        <div class="field"><label>Your Business (name, email, address)</label>
+            <textarea id="from" rows="3" placeholder="Jane Doe Design&#10;jane@email.com&#10;123 Main St"></textarea>
+        </div>
+        <div class="field"><label>Bill To (client details)</label>
+            <textarea id="to" rows="3" placeholder="Acme Corp&#10;billing@acme.com"></textarea>
+        </div>
+
+        <div class="row">
+            <div class="field"><label>Invoice #</label><input id="invNum" value="INV-001"></div>
+            <div class="field"><label>Status</label>
+                <select id="status">
+                    <option value="">None</option><option value="draft">Draft</option>
+                    <option value="sent">Sent</option><option value="paid">Paid ✓</option>
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="field"><label>Date</label><input id="date" type="date"></div>
+            <div class="field"><label>Due Date</label><input id="due" type="date"></div>
+        </div>
+        <div class="row">
+            <div class="field"><label>Currency</label>
+                <select id="currency">
+                    <option value="$">$ USD</option><option value="€">€ EUR</option>
+                    <option value="£">£ GBP</option><option value="₹">₹ INR</option>
+                    <option value="A$">A$ AUD</option><option value="C$">C$ CAD</option>
+                    <option value="R">R ZAR</option><option value="¥">¥ JPY</option>
+                </select>
+            </div>
+            <div class="field"><label>Payment link (optional)</label>
+                <input id="payLink" placeholder="https://paypal.me/you">
+            </div>
+        </div>
+
+        <div class="section-title">Line Items</div>
+        <div id="items"></div>
+        <button class="btn btn-add" id="btnAddItem">+ Add Item</button>
+
+        <div class="row" style="margin-top:14px;">
+            <div class="field"><label>Tax %</label><input id="tax" type="number" value="0" min="0" step="0.1"></div>
+            <div class="field"><label>Discount %</label><input id="discount" type="number" value="0" min="0" step="0.1"></div>
+        </div>
+        <div class="field"><label>Notes / Payment terms</label>
+            <textarea id="notes" rows="2" placeholder="Payment due within 14 days. Bank: ..."></textarea>
+        </div>
+
+        <button class="btn btn-print" id="btnPrint">🖨 Download PDF / Print</button>
+
+        <div class="section-title">Saved Invoices</div>
+        <div id="history"><span style="font-size:.82rem;color:var(--muted);">Nothing saved yet.</span></div>
+
+        <div class="promo no-print">
+            <h4>⭐ Go Pro — $9 one-time</h4>
+            5 premium themes + remove the QuickInvoice branding from your PDFs.<br>
+            <a href="https://YOUR-STORE.gumroad.com/l/quickinvoice-pro" target="_blank" rel="noopener">Unlock Pro →</a>
+        </div>
+    </aside>
+
+    <!-- ============ LIVE PREVIEW ============ -->
+    <div class="preview-wrap">
+        <div class="invoice theme-classic" id="invoice">
+            <div class="stamp" id="pStamp"></div>
+            <div class="inv-header">
+                <div>
+                    <img id="pLogo" alt="Logo">
+                    <div class="inv-title">INVOICE</div>
+                </div>
+                <div class="inv-meta">
+                    <div><strong id="pInvNum">INV-001</strong></div>
+                    <div>Date: <span id="pDate">—</span></div>
+                    <div>Due: <span id="pDue">—</span></div>
+                </div>
+            </div>
+            <div class="inv-parties">
+                <div class="party"><h3>From</h3><p id="pFrom">—</p></div>
+                <div class="party" style="text-align:right;"><h3>Bill To</h3><p id="pTo">—</p></div>
+            </div>
+            <table>
+                <thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead>
+                <tbody id="pItems"></tbody>
+            </table>
+            <div class="totals">
+                <div><span>Subtotal</span><span id="pSub">$0.00</span></div>
+                <div id="pDiscRow" style="display:none;"><span>Discount</span><span id="pDisc"></span></div>
+                <div id="pTaxRow" style="display:none;"><span>Tax</span><span id="pTax"></span></div>
+                <div class="grand"><span>Total</span><span id="pTotal">$0.00</span></div>
+            </div>
+            <a class="pay-btn" id="pPayBtn" target="_blank" rel="noopener">💳 Pay Now</a>
+            <div class="inv-notes" id="pNotes" style="display:none;"></div>
+            <div class="inv-brand">Made free with <a href="#">QuickInvoice</a></div>
+        </div>
     </div>
-  </div>
 </div>
 
 <div id="toast"></div>
-
-<script>
-(function () {
-  'use strict';
-  const $ = id => document.getElementById(id);
-  const DOC_KEY = 'quickinvoice_v2';
-  const HIST_KEY = 'quickinvoice_history_v2';
-  const PRO_URL = 'https://YOUR-STORE.gumroad.com/l/quickinvoice-pro';
-
-  const THEMES = [
-    { id:'theme-classic', label:'Classic', color:'#4f7cff', pro:false },
-    { id:'theme-noir',    label:'Noir',    color:'#111111', pro:false },
-    { id:'theme-emerald', label:'Emerald', color:'#0d9668', pro:false },
-    { id:'theme-rose',    label:'Rose',    color:'#e0507a', pro:true },
-    { id:'theme-gold',    label:'Gold',    color:'#b8860b', pro:true },
-    { id:'theme-slate',   label:'Slate',   color:'#475569', pro:true }
-  ];
-  let currentTheme = 'theme-classic';
-  let logoData = '';
-
-  // ---------- Helpers ----------
-  function escapeAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
-  function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function num(v){ const n = parseFloat(v); return isNaN(n) ? 0 : n; }
-  function money(v,c){ return c + v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
-  function fmtDate(v){
-    if (!v) return '—';
-    const d = new Date(v + 'T00:00:00');
-    return isNaN(d) ? '—' : d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
-  }
-  function toast(msg){
-    const t = $('toast'); t.textContent = msg; t.classList.add('show');
-    clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200);
-  }
-  function lsGet(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } }
-  function lsSet(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
-
-  // ---------- Themes ----------
-  function buildThemePicker(){
-    const wrap = $('themePicker'); wrap.innerHTML = '';
-    THEMES.forEach(t => {
-      const chip = document.createElement('div');
-      chip.className = 'theme-chip' + (t.pro ? ' locked' : '') + (t.id === currentTheme ? ' active' : '');
-      chip.style.background = t.color;
-      chip.textContent = t.pro ? '' : t.label;
-      chip.title = t.pro ? t.label + ' (Pro)' : t.label;
-      chip.onclick = () => {
-        if (t.pro) { window.open(PRO_URL, '_blank'); toast('⭐ Premium theme — unlock with Pro!'); return; }
-        currentTheme = t.id; applyTheme(); buildThemePicker(); render();
-      };
-      wrap.appendChild(chip);
-    });
-  }
-  function applyTheme(){
-    $('invoice').className = 'invoice ' + currentTheme;
-  }
-
-  // ---------- Logo ----------
-  $('logoInput').addEventListener('change', e => {
-    const f = e.target.files[0];
-    if (!f) return;
-    if (f.size > 500 * 1024) { toast('Logo too large — keep it under 500 KB'); e.target.value = ''; return; }
-    const reader = new FileReader();
-    reader.onload = ev => { logoData = ev.target.result; render(); toast('Logo added ✓'); };
-    reader.readAsDataURL(f);
-  });
-  $('logoClear').onclick = () => { logoData = ''; $('logoInput').value = ''; render(); };
-
-  // ---------- Line items ----------
-  window.addItem = function (desc = '', qty = 1, rate = '') {
-    const row = document.createElement('div');
-    row.className = 'item-row';
-    row.innerHTML = `
-      <input class="i-desc" placeholder="Logo design" value="${escapeAttr(desc)}">
-      <input class="i-qty" type="number" min="0" step="any" value="${escapeAttr(qty)}">
-      <input class="i-rate" type="number" min="0" step="any" placeholder="0.00" value="${escapeAttr(rate)}">
-      <button class="btn btn-remove" title="Remove">✕</button>`;
-    row.querySelector('.btn-remove').onclick = () => { row.remove(); render(); };
-    row.querySelectorAll('input').forEach(i => i.addEventListener('input', render));
-    $('items').appendChild(row);
-    render();
-  };
-
-  // ---------- Render ----------
-  function render(){
-    const cur = $('currency').value;
-    $('pInvNum').textContent = $('invNum').value || 'INV-001';
-    $('pDate').textContent = fmtDate($('date').value);
-    $('pDue').textContent = fmtDate($('due').value);
-    $('pFrom').textContent = $('from').value || '—';
-    $('pTo').textContent = $('to').value || '—';
-
-    // Logo
-    const logo = $('pLogo');
-    logo.style.display = logoData ? 'block' : 'none';
-    if (logoData) logo.src = logoData;
-    $('logoClear').style.display = logoData ? 'inline' : 'none';
-
-    // Status stamp
-    const st = $('status').value, stamp = $('pStamp');
-    stamp.className = 'stamp ' + st;
-    stamp.style.display = st ? 'block' : 'none';
-    stamp.textContent = st.toUpperCase();
-
-    // Items
-    let subtotal = 0, rowsHtml = '';
-    document.querySelectorAll('#items .item-row').forEach(row => {
-      const desc = row.querySelector('.i-desc').value;
-      const qty = num(row.querySelector('.i-qty').value);
-      const rate = num(row.querySelector('.i-rate').value);
-      const amount = qty * rate;
-      subtotal += amount;
-      if (desc || amount) {
-        rowsHtml += `<tr><td>${escapeHtml(desc) || '—'}</td><td>${qty}</td>
-                     <td>${money(rate,cur)}</td><td>${money(amount,cur)}</td></tr>`;
-      }
-    });
-    $('pItems').innerHTML = rowsHtml || '<tr><td colspan="4" style="color:#bbb;">No items yet</td></tr>';
-
-    // Totals
-    const discPct = num($('discount').value);
-    const discAmt = subtotal * discPct / 100;
-    const taxPct = num($('tax').value);
-    const taxAmt = (subtotal - discAmt) * taxPct / 100;
-    $('pSub').textContent = money(subtotal, cur);
-    $('pDiscRow').style.display = discPct > 0 ? 'flex' : 'none';
-    $('pDisc').textContent = '−' + money(discAmt, cur) + ` (${discPct}%)`;
-    $('pTaxRow').style.display = taxPct > 0 ? 'flex' : 'none';
-    $('pTax').textContent = money(taxAmt, cur) + ` (${taxPct}%)`;
-    $('pTotal').textContent = money(subtotal - discAmt + taxAmt, cur);
-
-    // Payment link — only allow real http(s) URLs
-    const link = $('payLink').value.trim();
-    const payBtn = $('pPayBtn');
-    if (/^https?:\/\/\S+$/i.test(link)) { payBtn.href = link; payBtn.style.display = 'inline-block'; }
-    else { payBtn.style.display = 'none'; }
-
-    // Notes
-    const notes = $('notes').value.trim();
-    $('pNotes').style.display = notes ? 'block' : 'none';
-    $('pNotes').textContent = notes;
-
-    saveDoc();
-  }
-
-  // ---------- Current document persistence ----------
-  function collect(){
-    return {
-      from: $('from').value, to: $('to').value, invNum: $('invNum').value,
-      currency: $('currency').value, date: $('date').value, due: $('due').value,
-      tax: $('tax').value, discount: $('discount').value, notes: $('notes').value,
-      status: $('status').value, payLink: $('payLink').value,
-      theme: currentTheme, logo: logoData,
-      items: [...document.querySelectorAll('#items .item-row')].map(r => ({
-        d: r.querySelector('.i-desc').value,
-        q: r.querySelector('.i-qty').value,
-        r: r.querySelector('.i-rate').value
-      }))
-    };
-  }
-  function saveDoc(){ lsSet(DOC_KEY, collect()); }
-  function loadDoc(data){
-    ['from','to','invNum','currency','date','due','tax','discount','notes','status','payLink']
-      .forEach(k => { if (data[k] !== undefined) $(k).value = data[k]; });
-    currentTheme = THEMES.some(t => t.id === data.theme && !t.pro) ? data.theme : 'theme-classic';
-    logoData = data.logo || '';
-    $('items').innerHTML = '';
-    (data.items && data.items.length ? data.items : [{d:'',q:1,r:''}])
-      .forEach(it => addItem(it.d, it.q, it.r));
-    applyTheme(); buildThemePicker();
-  }
-
-  // ---------- New invoice (auto-increment) ----------
-  window.newInvoice = function(){
-    const m = ($('invNum').value || 'INV-000').match(/^(.*?)(\d+)$/);
-    $('invNum').value = m ? m[1] + String(parseInt(m[2],10)+1).padStart(m[2].length,'0') : 'INV-001';
-    $('to').value = ''; $('notes').value = ''; $('status').value = '';
-    $('date').value = new Date().toISOString().slice(0,10); $('due').value = '';
-    $('items').innerHTML = ''; addItem();
-    toast('New invoice started — business details kept ✓');
-  };
-
-  // ---------- History ----------
-  window.saveToHistory = function(){
-    const hist = lsGet(HIST_KEY) || [];
-    const doc = collect();
-    const idx = hist.findIndex(h => h.invNum === doc.invNum);
-    if (idx > -1) hist[idx] = doc; else hist.unshift(doc);
-    lsSet(HIST_KEY, hist.slice(0, 20));
-    renderHistory();
-    toast('Saved to history ✓');
-  };
-  function renderHistory(){
-    const hist = lsGet(HIST_KEY) || [];
-    const wrap = $('history');
-    if (!hist.length) { wrap.innerHTML = '<span style="font-size:.82rem;color:var(--muted);">Nothing saved yet.</span>'; return; }
-    wrap.innerHTML = '';
-    hist.forEach((h, i) => {
-      const div = document.createElement('div');
-      div.className = 'hist-item';
-      const label = document.createElement('span');
-      label.textContent = `${h.invNum || '—'} · ${(h.to || '').split('\n')[0].slice(0,18) || 'No client'}`;
-      const btns = document.createElement('span');
-      const loadB = document.createElement('button'); loadB.className='btn-mini'; loadB.textContent='Open';
-      loadB.onclick = () => { loadDoc(h); render(); toast('Invoice loaded ✓'); };
-      const delB = document.createElement('button'); delB.className='btn-mini'; delB.style.color='#c0392b'; delB.textContent='✕';
-      delB.onclick = () => { hist.splice(i,1); lsSet(HIST_KEY, hist); renderHistory(); };
-      btns.append(loadB, delB); div.append(label, btns); wrap.appendChild(div);
-    });
-  }
-
-  // ---------- Dark mode ----------
-  $('darkToggle').onclick = () => {
-    document.body.classList.toggle('dark');
-    lsSet('quickinvoice_dark', document.body.classList.contains('dark'));
-  };
-  if (lsGet('quickinvoice_dark')) document.body.classList.add('dark');
-
-  // ---------- Init ----------
-  ['from','to','invNum','currency','date','due','tax','discount','notes','status','payLink']
-    .forEach(k => $(k).addEventListener('input', render));
-
-  const saved = lsGet(DOC_KEY);
-  if (saved) loadDoc(saved);
-  else { $('date').value = new Date().toISOString().slice(0,10); addItem(); buildThemePicker(); }
-  render();
-})();
-</script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
-
