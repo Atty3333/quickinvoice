@@ -25,8 +25,8 @@ export const DOC_KEY = 'quickinvoice_v2';
 export const HIST_KEY = 'quickinvoice_history_v2';
 
 // Placeholder URLs for your upcoming subscription plans
-export const SUB_MONTHLY_URL = 'https://buy.stripe.com/placeholder-monthly';
-export const SUB_LIFETIME_URL = 'https://buy.stripe.com/placeholder-lifetime';
+export const SUB_MONTHLY_URL = 'https://damessoft.gumroad.com/l/eenhcp';
+export const SUB_LIFETIME_URL = 'https://damessoft.gumroad.com/l/piqhgr';
 
 export const THEMES = [
     { id: 'theme-classic', label: 'Classic', color: '#4f7cff', pro: false },
