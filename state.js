@@ -3,7 +3,7 @@
  * Handles Firebase integration and LocalStorage fallback.
  */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js';
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js';
+import { getAuth, sendPasswordResetEmail, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js';
 import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js';
 
 const firebaseConfig = {
@@ -19,12 +19,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged };
+export { sendPasswordResetEmail, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged };
 
 export const DOC_KEY = 'quickinvoice_v2';
 export const HIST_KEY = 'quickinvoice_history_v2';
 
-// Placeholder URLs for your upcoming subscription plans
+// Gumroad product links (Pro is granted by the webhook in functions/index.js)
 export const SUB_MONTHLY_URL = 'https://damessoft.gumroad.com/l/eenhcp';
 export const SUB_LIFETIME_URL = 'https://damessoft.gumroad.com/l/piqhgr';
 
@@ -37,6 +37,9 @@ export const THEMES = [
     { id: 'theme-slate', label: 'Slate', color: '#475569', pro: false },
     { id: 'theme-wonder', label: 'Wonder', color: 'conic-gradient(from 90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)', pro: true }
 ];
+
+// Firestore IDs can't contain "/" or be "." / ".." — make invoice numbers safe
+const docId = (invNum) => encodeURIComponent(String(invNum).trim()).replace(/\./g, '%2E').slice(0, 300);
 
 export class StorageService {
     static getLocal(key) {
@@ -67,7 +70,7 @@ export class StorageService {
                 const snap = await getDocs(collection(db, `users/${auth.currentUser.uid}/invoices`));
                 const docs = [];
                 snap.forEach(d => docs.push(d.data()));
-                return docs.sort((a, b) => new Date(b.date) - new Date(a.date));
+                return docs.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0) || String(b.date || '').localeCompare(String(a.date || '')));
             } catch (e) {
                 console.error("Firestore read error", e);
                 return [];
@@ -78,21 +81,23 @@ export class StorageService {
 
     static async saveHistory(docData) {
         if (!docData.invNum) docData.invNum = `INV-${Date.now()}`;
-        
+        docData.savedAt = Date.now();
+
         if (auth.currentUser) {
-            await setDoc(doc(db, `users/${auth.currentUser.uid}/invoices`, docData.invNum), docData);
+            await setDoc(doc(db, `users/${auth.currentUser.uid}/invoices`, docId(docData.invNum)), docData);
         } else {
             const hist = this.getLocal(HIST_KEY) || [];
             const idx = hist.findIndex(h => h.invNum === docData.invNum);
             if (idx > -1) hist[idx] = docData; 
             else hist.unshift(docData);
-            this.setLocal(HIST_KEY, hist.slice(0, 20));
+            // Throw so the UI can tell the user when storage is full
+            localStorage.setItem(HIST_KEY, JSON.stringify(hist.slice(0, 20)));
         }
     }
 
     static async deleteHistoryItem(invNum) {
         if (auth.currentUser) {
-            await deleteDoc(doc(db, `users/${auth.currentUser.uid}/invoices`, invNum));
+            await deleteDoc(doc(db, `users/${auth.currentUser.uid}/invoices`, docId(invNum)));
         } else {
             const hist = this.getLocal(HIST_KEY) || [];
             const filtered = hist.filter(h => h.invNum !== invNum);

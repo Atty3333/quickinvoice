@@ -3,8 +3,9 @@
  * Primary UI controller and DOM manipulation logic.
  */
 import { 
-    THEMES, SUB_MONTHLY_URL, SUB_LIFETIME_URL, StorageService, 
-    auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged 
+    THEMES, SUB_MONTHLY_URL, SUB_LIFETIME_URL, StorageService,
+    auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged,
+    sendPasswordResetEmail
 } from './state.js';
 
 const $ = id => document.getElementById(id);
@@ -17,8 +18,14 @@ let isLoginMode = true;
 // ---------- Formatters & Security ----------
 const escapeAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
-const money = (v, c) => c + v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const num = (v) => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const clampPct = (v) => Math.min(100, Math.max(0, num(v)));
+const money = (v, c) => (v < 0 ? '-' : '') + c + Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+// Local date as YYYY-MM-DD (toISOString uses UTC and can be off by a day)
+const todayLocal = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 const fmtDate = (v) => {
     if (!v) return '—';
     const d = new Date(v + 'T00:00:00');
@@ -125,16 +132,16 @@ function render() {
         subtotal += amount;
         
         if (desc || amount) {
-            rowsHtml += `<tr><td>${escapeHtml(desc) || '—'}</td><td>${qty}</td>
+            rowsHtml += `<tr><td>${escapeHtml(desc) || '—'}</td><td>${escapeHtml(String(+qty.toFixed(4)))}</td>
                          <td>${money(rate, cur)}</td><td>${money(amount, cur)}</td></tr>`;
         }
     });
     $('pItems').innerHTML = rowsHtml || '<tr><td colspan="4" style="color:#bbb;">No items yet</td></tr>';
 
     // Totals
-    const discPct = num($('discount').value);
+    const discPct = clampPct($('discount').value);
     const discAmt = subtotal * (discPct / 100);
-    const taxPct = num($('tax').value);
+    const taxPct = clampPct($('tax').value);
     const taxAmt = (subtotal - discAmt) * (taxPct / 100);
     
     $('pSub').textContent = money(subtotal, cur);
@@ -162,6 +169,9 @@ function render() {
     const pNotes = $('pNotes');
     pNotes.style.display = notes ? 'block' : 'none';
     pNotes.textContent = notes;
+
+    // Pro-only features
+    $('brandWatermark').style.display = isPro ? 'none' : 'block';
 
     // Sync current editor state locally
     StorageService.saveDocument(collectState());
@@ -233,8 +243,10 @@ async function renderHistory() {
         delB.style.color = '#c0392b';
         delB.textContent = '✕';
         delB.onclick = async () => { 
-            await StorageService.deleteHistoryItem(h.invNum); 
-            renderHistory(); 
+            if (!confirm(`Delete ${h.invNum || 'this invoice'}?`)) return;
+            try { await StorageService.deleteHistoryItem(h.invNum); }
+            catch (e) { console.error(e); toast('Could not delete — try again'); return; } 
+            renderHistory();
             toast('Deleted ✓');
         };
         
@@ -259,6 +271,11 @@ function bindEvents() {
     $('logoInput').addEventListener('change', e => {
         const f = e.target.files[0];
         if (!f) return;
+        if (!/^image\/(png|jpe?g|gif|webp|svg\+xml)$/.test(f.type)) {
+            toast('Please choose a PNG, JPG, GIF, WEBP or SVG image');
+            e.target.value = '';
+            return;
+        }
         if (f.size > 500 * 1024) {
             toast('Logo too large — keep it under 500 KB');
             e.target.value = '';
@@ -275,8 +292,8 @@ function bindEvents() {
     $('btnNewInvoice').addEventListener('click', () => {
         const m = ($('invNum').value || 'INV-000').match(/^(.*?)(\d+)$/);
         $('invNum').value = m ? m[1] + String(parseInt(m[2], 10) + 1).padStart(m[2].length, '0') : 'INV-001';
-        ['to', 'notes', 'status', 'due'].forEach(id => $(id).value = '');
-        $('date').value = new Date().toISOString().slice(0, 10);
+        ['to', 'status', 'due'].forEach(id => $(id).value = '');
+        $('date').value = todayLocal();
         $('items').innerHTML = '';
         addItemRow();
         toast('New invoice started ✓');
@@ -286,10 +303,20 @@ function bindEvents() {
     $('btnSaveHistory').addEventListener('click', async () => {
         const btn = $('btnSaveHistory');
         btn.textContent = 'Saving...';
-        await StorageService.saveHistory(collectState());
-        await renderHistory();
-        btn.textContent = '💾 Save';
-        toast('Saved to history ✓');
+        btn.disabled = true;
+        try {
+            const state = collectState();
+            if (!state.invNum.trim()) { toast('Add an invoice number first'); return; }
+            await StorageService.saveHistory(state);
+            await renderHistory();
+            toast('Saved to history ✓');
+        } catch (e) {
+            console.error(e);
+            toast(e && e.name === 'QuotaExceededError' ? 'Browser storage full — remove the logo or old invoices' : 'Could not save — check your connection');
+        } finally {
+            btn.textContent = '💾 Save';
+            btn.disabled = false;
+        }
     });
 
     $('btnAddItem').addEventListener('click', () => addItemRow());
@@ -302,7 +329,7 @@ function bindEvents() {
 
     // --- Auth Logic ---
     $('btnAuth').addEventListener('click', () => {
-        if (auth.currentUser) { signOut(auth); toast('Logged out ✓'); } 
+        if (auth.currentUser) { signOut(auth).then(() => toast('Logged out ✓')).catch(() => toast('Logout failed')); }
         else { $('authModal').classList.add('show'); }
     });
 
@@ -317,11 +344,14 @@ function bindEvents() {
     });
 
     $('btnAuthSubmit').addEventListener('click', async () => {
-        const email = $('authEmail').value;
+        const email = $('authEmail').value.trim();
         const pass = $('authPassword').value;
         const errDiv = $('authError');
+        const btn = $('btnAuthSubmit');
         if (!email || !pass) { errDiv.textContent = 'Please fill all fields.'; errDiv.style.display = 'block'; return; }
-        
+        if (!isLoginMode && pass.length < 6) { errDiv.textContent = 'Password must be at least 6 characters.'; errDiv.style.display = 'block'; return; }
+
+        btn.disabled = true;
         try {
             if (isLoginMode) await signInWithEmailAndPassword(auth, email, pass);
             else await createUserWithEmailAndPassword(auth, email, pass);
@@ -329,7 +359,31 @@ function bindEvents() {
             $('authEmail').value = ''; $('authPassword').value = '';
             toast(`Welcome, ${email}!`);
         } catch (e) {
-            errDiv.textContent = e.message.replace('Firebase:', '').trim();
+            errDiv.textContent = friendlyAuthError(e);
+            errDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    // Enter key submits, Escape closes
+    ['authEmail', 'authPassword'].forEach(id => $(id).addEventListener('keydown', e => {
+        if (e.key === 'Enter') $('btnAuthSubmit').click();
+    }));
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') $('authModal').classList.remove('show');
+    });
+
+    $('btnAuthReset').addEventListener('click', async () => {
+        const email = $('authEmail').value.trim();
+        const errDiv = $('authError');
+        if (!email) { errDiv.textContent = 'Enter your email above first.'; errDiv.style.display = 'block'; return; }
+        try {
+            await sendPasswordResetEmail(auth, email);
+            errDiv.style.display = 'none';
+            toast('Password reset email sent ✓');
+        } catch (e) {
+            errDiv.textContent = friendlyAuthError(e);
             errDiv.style.display = 'block';
         }
     });
@@ -349,12 +403,46 @@ function bindEvents() {
         }
 
         // Apply Pro layout overrides (Watermarks & Ads)
-        $('brandWatermark').style.display = isPro ? 'none' : 'block';
         $('adContainer').style.display = isPro ? 'none' : 'block';
+        updateUpgradeLinks(user);
+
+        // Drop Pro-only theme if the user is no longer Pro (e.g. after logout)
+        if (!isPro && THEMES.some(t => t.id === currentTheme && t.pro)) {
+            currentTheme = 'theme-classic';
+            $('invoice').className = `invoice ${currentTheme}`;
+        }
 
         buildThemePicker();
+        render();
         renderHistory();
     });
+}
+
+function friendlyAuthError(e) {
+    const map = {
+        'auth/invalid-email': 'That email address looks wrong.',
+        'auth/invalid-credential': 'Wrong email or password.',
+        'auth/wrong-password': 'Wrong email or password.',
+        'auth/user-not-found': 'No account with that email.',
+        'auth/email-already-in-use': 'An account with that email already exists. Try signing in.',
+        'auth/weak-password': 'Password must be at least 6 characters.',
+        'auth/too-many-requests': 'Too many attempts. Please wait a moment and try again.',
+        'auth/network-request-failed': 'No connection. Check your internet and try again.'
+    };
+    return map[e && e.code] || 'Something went wrong. Please try again.';
+}
+
+// Pass the signed-in email to Gumroad so the purchase can be matched to the account
+function updateUpgradeLinks(user) {
+    const set = (id, base) => {
+        const a = $(id);
+        if (!a) return;
+        a.href = user && user.email ? `${base}?email=${encodeURIComponent(user.email)}` : base;
+    };
+    set('linkMonthly', SUB_MONTHLY_URL);
+    set('linkLifetime', SUB_LIFETIME_URL);
+    $('proHint').style.display = user ? 'none' : 'block';
+    $('promo').style.display = isPro ? 'none' : 'block';
 }
 
 // ---------- Initialization ----------
@@ -366,7 +454,7 @@ function init() {
     const savedDoc = StorageService.getDocument();
     if (savedDoc) loadState(savedDoc);
     else {
-        $('date').value = new Date().toISOString().slice(0, 10);
+        $('date').value = todayLocal();
         addItemRow();
         buildThemePicker();
     }

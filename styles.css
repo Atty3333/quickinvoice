@@ -101,3 +101,9 @@ td { padding:10px 6px; border-bottom:1px solid #f2f2f2; font-size:.92rem; }
 .modal-content { background:var(--panel); padding:32px; border-radius:12px; width:340px; display:flex; flex-direction:column; gap:12px; box-shadow:0 10px 30px rgba(0,0,0,0.2); }
 .modal-content h3 { margin-bottom:8px; font-size:1.4rem; }
 .modal-content input { padding:12px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text); font-size:.95rem; }
+/* Footer & disabled buttons */
+.site-footer { margin-top:18px; text-align:center; font-size:.78rem; color:var(--muted); }
+.site-footer a { color:var(--muted); }
+.btn:disabled { opacity:.6; cursor:wait; }
+.invoice { overflow-wrap:anywhere; }
+@media print { .pay-btn { -webkit-print-color-adjust:exact; print-color-adjust:exact; } .inv-brand { position:static; margin-top:24px; } }

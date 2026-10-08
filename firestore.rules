@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // A user can read their own profile, but never write pro_status themselves.
+    // pro_status is only set by the Gumroad webhook (functions/index.js).
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+
+      match /invoices/{invoiceId} {
+        allow read, delete: if request.auth != null && request.auth.uid == uid;
+        allow create, update: if request.auth != null && request.auth.uid == uid
+          && request.resource.size() < 60
+          && request.resource.data.keys().hasOnly(['from','to','invNum','currency','date','due','tax','discount','notes','status','payLink','theme','wonderColor','logo','items','savedAt'])
+          && (!('logo' in request.resource.data) || request.resource.data.logo.size() < 700000);
+      }
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
