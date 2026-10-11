@@ -1,14 +1,20 @@
+### 2. `quickinvoice`
+```markdown
 # QuickInvoice
 
-Free invoice generator (HTML/CSS/JS + Firebase). Hosted on GitHub Pages.
+**QuickInvoice** is a lightweight, efficient invoicing web application designed to simplify the billing and invoice generation process for freelancers and small businesses.
 
-## Deploy checklist
-1. Upload all files to the repo (GitHub Pages serves `index.html`, `privacy.html`, `terms.html`, `ads.txt`).
-2. Firebase console → Authentication → Settings → Authorized domains: add `atty3333.github.io` (and any custom domain).
-3. Firebase console → Google Cloud → API key: restrict it to your domains.
-4. Install Firebase CLI, then from this folder:
-   - `firebase functions:secrets:set GUMROAD_SELLER_ID`
-   - `firebase deploy --only firestore:rules,functions` (Functions need the Blaze plan)
-5. Gumroad → Settings → Advanced → Ping endpoint: paste the `gumroadPing` URL.
-6. Replace `support@damessoft.com` in `index.html`, `privacy.html`, `terms.html` if needed.
-7. AdSense: add a cookie consent message (AdSense → Privacy & messaging) for EU/UK visitors.
+## 🚀 Features
+* **Rapid Invoice Creation:** Generate itemized invoices in seconds.
+* **Client Management:** Easily save and manage client details and billing addresses.
+* **Calculation Automation:** Automatic subtotal, tax, and total calculations.
+* **Export & Share:** Clean print and export layouts.
+
+## 🛠️ Tech Stack
+* **Frontend:** HTML5, CSS3, JavaScript / Frontend Framework
+* **Backend / Storage:** Lightweight local or server-side data handling
+
+## ⚙️ Getting Started
+1. Clone the repository:
+   ```bash
+   git clone [
